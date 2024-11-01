@@ -10,6 +10,13 @@
         maxZoom: 19,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
+
+    
+   map.on('click', function(e) {
+        console.log(e.latlng.lat, e.latlng.lng)
+        L.marker([e.latlng.lat, e.latlng.lng]).addTo(map)
+   })
+   
 </script>
 
 </div>
