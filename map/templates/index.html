@@ -2,7 +2,42 @@
 
 {% block content %}
 
-<div id="map" style="height: 880px; width: 1200px;" class="row">
+<style>
+    #map {height: 880px; width: 1200px;}
+</style>
+
+<div class = "row mt-1 ml-1 mr-1">
+    {% comment %} <div class="col-sm-4"> 
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Alert 1</h5>
+                <p class="card-text">This is some text within a card body.</p>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Alert 2</h5>
+                <p class="card-text">This is some text within a card body.</p>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Alert 3</h5>
+                <p class="card-text">This is some text within a card body.</p>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Alert 4</h5>
+                <p class="card-text">This is some text within a card body.</p>
+            </div>
+        </div>
+    </div> {% endcomment %}
+    <div id="map" class="col-sm-12">
+
+    </div>
+</div>
+
 
 <script>
     var map = L.map('map').setView([45.47055, 9.1814], 13);
@@ -16,9 +51,23 @@
         console.log(e.latlng.lat, e.latlng.lng)
         L.marker([e.latlng.lat, e.latlng.lng]).addTo(map)
    })
+
+   window.onload = window.onresize = function(){map.invalidateSize();};
+
+       // Change default options
+       L.control.rainviewer({ 
+        position: 'bottomleft',
+        nextButtonText: '>',
+        playStopButtonText: 'Play/Stop',
+        prevButtonText: '<',
+        positionSliderLabelText: "Hour:",
+        opacitySliderLabelText: "Opacity:",
+        animationInterval: 500,
+        opacity: 1
+    }).addTo(map);
    
 </script>
 
-</div>
+
 
 {% endblock %}
