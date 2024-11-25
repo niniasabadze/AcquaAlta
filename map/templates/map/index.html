@@ -4,6 +4,52 @@
 
 <style>
     #map {height: 880px; width: 1200px;}
+    /* Custom style for markers with heavy rainfall */
+    .rain-marker {
+        background-color: red;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        border: 2px solid red;
+    }
+    .thumbs-section {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        align-items: center;
+    }
+    .thumbs-icon {
+        transition: color 0.3s ease;
+        cursor: pointer;
+    }
+    .thumbs-up-${marker.id}{
+        
+    }
+    #raindrop-card {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        background-color: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+    }
+    #raindrops {
+        display: flex;
+        gap: 10px;
+    }
+    .raindrop-btn {
+        font-size: 24px;
+        color: #007bff;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+    }
+    .raindrop-btn:hover {
+        color: #0056b3;
+    }
+    
 </style>
 
 <div class = "row mt-1 ml-1 mr-1">
@@ -14,6 +60,21 @@
     </div>
 </div>
 
+<div id="raindrop-card" class="card">
+    <h5>Select Raindrops</h5>
+    <div id="raindrops">
+        {% for i in "12345" %}
+        <button 
+            class="raindrop-btn" 
+            data-raindrop="{{ forloop.counter }}">
+            <i class="bi bi-droplet"></i>
+        </button>
+        {% endfor %}
+    </div>
+    <p id="raindrop-info">Choose the number of raindrops</p>
+</div>
+
+
 
 <script>
     
@@ -23,60 +84,219 @@
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
 
+    let userAuthenticated = false;
+    //let raindropCount = 0;
+
+    // Fetch user's location
+    navigator.geolocation.getCurrentPosition(function(position) {
+        map.setView([position.coords.latitude, position.coords.longitude], 15);
+    });
+
     // Fetch and display existing markers
     fetch('/get_markers/')
         .then(response => response.json())
         .then(data => {
-            data.forEach(marker => {
+            userAuthenticated = data.authenticated;
+            data.markers.forEach(marker => {
                 L.marker([marker.latitude, marker.longitude])
                     .addTo(map)
-                    .bindPopup(`<b>${marker.title}</b><br>${marker.description}<br><small>Added by: ${marker.username}</small>`);
+                    .bindPopup(`<b>${marker.title}</b>
+                                <br>${marker.description}<br>
+                                <small>Disruption Type: ${marker.disruption_type}</small><br>
+                                <div class="thumbs-section mt-2">
+                                    <button class="btn">
+                                        <i id="thumbs-up-${marker.id}" style="color: green;" class="bi bi-hand-thumbs-up thumbs-icon" 
+                                        onmouseover="fillIcon('thumbs-up-${marker.id}', true)" 
+                                        onmouseout="fillIcon('thumbs-up-${marker.id}', false)"
+                                        onclick="handleVote(${marker.id}, true)">
+                                        </i> ${marker.like_count}
+                                    </button>
+                                    <button class="btn">
+                                        <i id="thumbs-down-${marker.id}" style="color: red;" class="bi bi-hand-thumbs-down thumbs-icon" 
+                                        onmouseover="fillIcon('thumbs-down-${marker.id}', true)" 
+                                        onmouseout="fillIcon('thumbs-down-${marker.id}', false)"
+                                        onclick="handleVote(${marker.id}, false)">
+                                        </i>${marker.dislike_count}
+                                    </button>
+                                </div>
+                                <small>Added by: ${marker.username}</small><br>
+                                <small>Date: ${marker.created_at}</small>`
+                                );
             });
         });
     
-    map.on('click', function(e) {
-        var lat = e.latlng.lat;
-        var lng = e.latlng.lng;
-        
-        var title = prompt("Enter title:");
-        var description = prompt("Enter description:");
-        
-        if (title && description) {
-            var marker = L.marker([lat, lng]).addTo(map);
-            marker.bindPopup(`<b>${title}</b><br>${description}<br><small>Added by: You</small>`).openPopup();
-            
-            // Send data to Django
-            fetch('/save_marker/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify({ title: title, description: description, latitude: lat, longitude: lng })
-            }).then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      console.log("Marker saved!");
-                  }
-              });
-        }
-    });
-
-   window.onload = window.onresize = function(){map.invalidateSize();};
-
-       // Change default options
-       L.control.rainviewer({ 
-        position: 'bottomleft',
-        nextButtonText: '>',
-        playStopButtonText: 'Play/Stop',
-        prevButtonText: '<',
-        positionSliderLabelText: "Hour:",
-        opacitySliderLabelText: "Opacity:",
-        animationInterval: 500,
-        opacity: 1
-    }).addTo(map);
-
+    // Raindrop selection handling
+    const raindropButtons = document.querySelectorAll('.raindrop-btn');
+    const raindropInfo = document.getElementById('raindrop-info');
+    let selectedRaindropCount = 0; // Track the number of selected raindrops
     
+    
+    // Add hover and click event listeners to each raindrop button
+    raindropButtons.forEach((button, index) => {
+        const raindropIndex = index + 1; // 1-based index for each raindrop
+
+        // Handle hover effect
+        button.addEventListener('mouseover', () => fillRaindrops(raindropIndex));
+        button.addEventListener('mouseout', () => resetRaindrops(selectedRaindropCount));
+
+        // Handle click to finalize selection
+        button.addEventListener('click', () => {
+            selectedRaindropCount = raindropIndex;
+            raindropInfo.textContent = `You selected ${selectedRaindropCount} raindrop${selectedRaindropCount > 1 ? 's' : ''}`;
+            resetRaindrops(selectedRaindropCount); // Ensure the selection remains after hover
+            addPins(); // Add the appropriate number of pins
+        });
+    });
+    
+    // Function to add pins
+    function addPins() {
+        if (!userAuthenticated) {
+            alert("You must be logged in to add markers.");
+            return;
+        }
+        if (selectedRaindropCount > 0) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+    
+                for (let i = 0; i < selectedRaindropCount; i++) {
+                    const pin = L.marker([userLat, userLng], { draggable: true }).addTo(map);
+                    pin.bindPopup(`
+                        <form id="markerForm" class="form-group">
+                            <div class="form-group">
+                                <label for="title">Title:</label>
+                                <input type="text" class="form-control" id="title" required><br>
+                            </div>
+                            <div class="form-group">
+                                <label for="description">Description:</label>
+                                <textarea class="form-control" id="description" rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="disruption_type">Disruption Type:</label>
+                                <select class="form-control" id="disruption_type">
+                                    <option value="">Select an option</option>
+                                    <option value="Flood">Flood</option>
+                                    <option value="Flooded Sidewalk">Flooded Sidewalk</option>
+                                    <option value="Flooded Crosswalk">Flooded Crosswalk</option>
+                                    <option value="Hazardous Infrastructure">Hazardous Infrastructure</option>
+                                    <option value="Splash Zone">Splash Zone</option>
+                                    <option value="Flooded Road">Flooded Road</option>
+                                    <option value="Flooded Parking Spaces">Flooded Parking Spaces</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-outline-dark">Save Marker</button>
+                        </form>
+                    `).openPopup();
+    
+                    // Remove duplicate pin when dragged
+                    pin.on('dragend', function (event) {
+                        const newLatLng = event.target.getLatLng();
+                        pin.setLatLng(newLatLng); // Update the pin's position
+                        pin.openPopup(); // Reopen popup at the new location
+                    });
+
+                    // Handle form submission
+                    pin.on('popupopen', function() {
+                        const form = document.getElementById('markerForm');
+                        form.addEventListener('submit', function(event) {
+                            event.preventDefault(); // Prevent page reload
+                            const title = form.querySelector('#title').value;
+                            const description = form.querySelector('#description').value;
+                            const disruptionType = form.querySelector('#disruption_type').value;
+    
+                            pin.unbindPopup();
+                            pin.bindPopup(`
+                                <b>${title}</b><br>${description}<br>
+                                <small>Type: ${disruptionType}</small>
+                            `).openPopup();
+    
+                            // Send data to server
+                            fetch('/save_marker/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                },
+                                body: JSON.stringify({
+                                    title: title,
+                                    description: description,
+                                    disruption_type: disruptionType,
+                                    latitude: pin.getLatLng().lat,
+                                    longitude: pin.getLatLng().lng
+                                })
+                            }).then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert('Marker saved!');
+                                } else {
+                                    alert('Failed to save marker.');
+                                }
+                            });
+                        });
+                    });
+                }
+            });
+        }
+    }
+
+    function handleVote(markerId, isThumbsUp) {
+        fetch(`/vote/${markerId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ thumbs_up: isThumbsUp }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(`Vote recorded: ${isThumbsUp ? 'Thumbs Up' : 'Thumbs Down'}`);
+            location.reload(); // Refresh map to reflect updated counts
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to record vote.');
+        });
+    }
+    function fillIcon(iconId, isFilling) {
+        const icon = document.getElementById(iconId);
+        if (isFilling) {
+            if (icon.classList.contains('bi-hand-thumbs-up')) {
+                icon.classList.replace('bi-hand-thumbs-up', 'bi-hand-thumbs-up-fill');
+            } else if (icon.classList.contains('bi-hand-thumbs-down')) {
+                icon.classList.replace('bi-hand-thumbs-down', 'bi-hand-thumbs-down-fill');
+            }
+        } else {
+            if (icon.classList.contains('bi-hand-thumbs-up-fill')) {
+                icon.classList.replace('bi-hand-thumbs-up-fill', 'bi-hand-thumbs-up');
+            } else if (icon.classList.contains('bi-hand-thumbs-down-fill')) {
+                icon.classList.replace('bi-hand-thumbs-down-fill', 'bi-hand-thumbs-down');
+            }
+        }
+    }
+
+    // Function to fill raindrops up to a specific count
+    function fillRaindrops(count) {
+        raindropButtons.forEach((button, index) => {
+            const icon = button.querySelector('i');
+            if (index < count) {
+                icon.classList.replace('bi-droplet', 'bi-droplet-fill');
+            } else {
+                icon.classList.replace('bi-droplet-fill', 'bi-droplet');
+            }
+        });
+    }
+
+    // Function to reset raindrops based on the current selection
+    function resetRaindrops(count) {
+        raindropButtons.forEach((button, index) => {
+            const icon = button.querySelector('i');
+            if (index < count) {
+                icon.classList.replace('bi-droplet', 'bi-droplet-fill');
+            } else {
+                icon.classList.replace('bi-droplet-fill', 'bi-droplet');
+            }
+        });
+    }
    
 </script>
 

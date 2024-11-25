@@ -1,0 +1,40 @@
+{% extends "map/base.html" %}
+{% load crispy_forms_tags %}
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center">Edit Profile</h2>
+    <form method="post" enctype="multipart/form-data" class="mt-4">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" value="{{ user.username }}" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label for="user_type">Select your roles:</label>
+            <select id="user_type" name="user_type" class="form-control" multiple>
+                <option value="Pedestrian" {% if "pedestrian" in user.profile.user_type %}selected{% endif %}>
+                    Pedestrian
+                </option>
+                <option value="Delivery Driver" {% if "delivery_driver" in user.profile.user_type %}selected{% endif %}>
+                    Delivery Driver
+                </option>
+                <option value="Regular Driver" {% if "regular_driver" in user.profile.user_type %}selected{% endif %}>
+                    Regular Driver
+                </option>
+                <option value="Biker" {% if "biker" in user.profile.user_type %}selected{% endif %}>
+                    Biker
+                </option>
+                <option value="None" {% if "none" in user.profile.user_type %}selected{% endif %}>
+                    None
+                </option>
+            </select>
+            <small class="form-text text-muted">Hold down Ctrl (Windows) or Command (Mac) to select multiple options.</small>
+        </div>
+
+        <div class="d-flex justify-content-between mt-4">
+            <button type="submit" class="btn btn-outline-success">Save Changes</button>
+            <a href="{% url 'delete_account' %}" class="btn btn-outline-danger">Delete Account</a>
+        </div>
+    </form>
+</div>
+{% endblock content %}

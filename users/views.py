@@ -1,9 +1,12 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib import messages
+
+from users.models import Profile
 from .forms import UserRegisterForm
 from django.contrib.auth.views import LogoutView
 from django.contrib.auth.decorators import login_required
+
 def register(request):
     if request.method == "POST":
         form = UserRegisterForm(request.POST)
@@ -24,3 +27,26 @@ class CustomLogoutView(LogoutView):
 @login_required
 def profile(request):
     return render(request, "users/profile.html")
+
+@login_required
+def edit_profile_view(request):
+    # Ensure the profile exists
+    if not hasattr(request.user, 'profile'):
+        Profile.objects.create(user=request.user)
+
+    if request.method == 'POST':
+        user = request.user
+        user.username = request.POST.get('username', user.username)
+        user.profile.user_type = ', '.join(request.POST.getlist('user_type'))
+        user.save()
+        user.profile.save()
+        return redirect('profile')
+
+    return render(request, 'users/edit_profile.html')
+
+@login_required
+def delete_account_view(request):
+    if request.method == 'POST':
+        request.user.delete()
+        return redirect('home')  # Redirect to homepage after deletion
+    return render(request, 'users/confirm_delete.html')
