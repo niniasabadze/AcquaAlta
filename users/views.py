@@ -28,6 +28,9 @@ class CustomLogoutView(LogoutView):
 def profile(request):
     return render(request, "users/profile.html")
 
+def terms_conditions(request):
+    return render(request, 'users/terms_conditions.html')
+
 @login_required
 def edit_profile_view(request):
     

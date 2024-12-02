@@ -48,6 +48,23 @@
         border: 1px solid #ddd;
         border-radius: 5px;
       }
+      .hide {
+        opacity: 0;
+        transition: opacity 1s ease-out;
+      }
+      #login-alert{
+        background-color: rgba(255, 255, 255, 2);
+        border: none; 
+        color: black; 
+        position: absolute; 
+        top: 90px; 
+        left: 36%;
+        z-index: 1000; 
+        width: auto; 
+        max-width: auto;
+        text-align: center;
+        border-radius: 10px;
+      }
   </style>
 
 </head>
@@ -65,7 +82,11 @@
                 <li class="nav-item active">
                   <a class="nav-link" href="#" onclick="openSidebar()">Alerts</a>
                 </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="{% url 'terms_conditions' %}">Terms & Conditions</a>
+              </li>
               </ul>
+              
           
             <ul class="navbar-nav ml-auto">
                 {% if user.is_authenticated %}
@@ -126,6 +147,12 @@
       </div>
 
     </div>
+    {% if not user.is_authenticated %}
+    <div id="login-alert" class="alert alert-warning alert-dismissible fade show" role="alert">
+      <strong>Note:</strong> You need to log in to create a pin on the map.
+    </div>
+    {% endif %}
+
     {% if messages %}
     {% for message in messages %}
       <div class="alert alert-{{ message.tags}}">
@@ -144,8 +171,17 @@
       function closeSidebar() {
         var sidebar = document.getElementById('alertSidebar');
         sidebar.classList.remove('show');
-    }
+      }
     
+      window.addEventListener('load', function() {
+        const alertElement = document.getElementById('login-alert');
+        if (alertElement) {
+          setTimeout(() => {
+            alertElement.classList.remove('show');
+            alertElement.classList.add('hide');
+          }, 6000); 
+        }
+      });
     </script>
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>

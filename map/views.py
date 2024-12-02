@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 import numpy as np
 from django.core.cache import cache
 
-API_KEY = "6a1620c55efb7c9d49e20ca92b7b352b"
+API_KEY = "3534baf72dbcd1d79ae791c8240b6a74"
 API_URL = "http://api.openweathermap.org/data/2.5/weather"
 
 def index(request):
@@ -82,7 +82,6 @@ def vote_marker(request, marker_id):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
 
-
 def fetch_street_coordinates(request):
     bbox = "9.1122,45.4215,9.2560,45.5115"
 
@@ -101,3 +100,47 @@ def fetch_street_coordinates(request):
     else:
         return JsonResponse({'error': 'Failed to fetch data'}, status=500)
 
+# def fetch_street_coordinates(request):
+#     cache_key = "milan_street_data"
+#     street_data = cache.get(cache_key)
+    
+#     bbox = "9.1122,45.4215,9.2560,45.5115"
+
+    
+#     if not street_data:
+#         bbox = "9.1122,45.4215,9.2560,45.5115"
+#         query = f"""
+#         [out:json];
+#         way["highway"~"primary|secondary|tertiary|residential"]({bbox});
+#         (._;>;);
+#         out body;
+#         """
+#         overpass_url = "https://overpass-api.de/api/interpreter"
+        
+#         response = requests.get(overpass_url, params={'data': query})
+        
+#         if response.status_code == 200:
+#             street_data = response.json()
+#             cache.set(cache_key, street_data, timeout=3600)  # Cache for 1 hour
+#         else:
+#             return JsonResponse({'error': 'Failed to fetch street data'}, status=500)
+    
+#     return JsonResponse(street_data, safe=False)
+
+# def fetch_weather(lat, lon):
+#     cache_key = f"weather_{lat}_{lon}"
+#     weather_data = cache.get(cache_key)
+
+#     if not weather_data:
+#         api_key = '6a1620c55efb7c9d49e20ca92b7b352b'
+#         url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}"
+        
+#         response = requests.get(url)
+        
+#         if response.status_code == 200:
+#             weather_data = response.json()
+#             cache.set(cache_key, weather_data, timeout=600)  # Cache for 10 minutes
+#         else:
+#             return {'error': 'Failed to fetch weather data'}
+    
+#     return weather_data
