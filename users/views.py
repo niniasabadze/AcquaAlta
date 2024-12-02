@@ -30,7 +30,7 @@ def profile(request):
 
 @login_required
 def edit_profile_view(request):
-    # Ensure the profile exists
+    
     if not hasattr(request.user, 'profile'):
         Profile.objects.create(user=request.user)
 
@@ -48,5 +48,5 @@ def edit_profile_view(request):
 def delete_account_view(request):
     if request.method == 'POST':
         request.user.delete()
-        return redirect('home')  # Redirect to homepage after deletion
+        return redirect('home')
     return render(request, 'users/confirm_delete.html')

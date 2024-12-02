@@ -49,6 +49,19 @@
     .raindrop-btn:hover {
         color: #0056b3;
     }
+    .bi-droplet-fill, .bi_droplet {
+        color: #1c74af;
+    }
+    #map-controls{
+        position: absolute; 
+        top: 90px; 
+        right: 20px; 
+        background: white; 
+        padding: 15px; 
+        z-index: 1000; 
+        border-radius: 10px; 
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
     
 </style>
 
@@ -74,81 +87,154 @@
     <p id="raindrop-info">Choose the number of raindrops</p>
 </div>
 
+<div id="map-controls" >
+    <h4>Filters</h4>
+    <div>
+        <strong>User Type:</strong><br>
+        <input type="checkbox" id="pedestrian" checked> Pedestrian<br>
+        <input type="checkbox" id="driver" checked> Driver<br>
+    </div>
+    <div style="margin-top: 10px;">
+        <strong>Layers:</strong><br>
+        <input type="checkbox" id="highlights" checked> Highlights<br>
+        <input type="checkbox" id="pins" checked> Pins<br>
+    </div>
+</div>
 
 
 <script>
-    
+        
     var map = L.map('map').setView([45.47055, 9.1814], 13);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
-
+    
+    
     let userAuthenticated = false;
-    //let raindropCount = 0;
 
-    // Fetch user's location
+    // Fetch user's current location
     navigator.geolocation.getCurrentPosition(function(position) {
         map.setView([position.coords.latitude, position.coords.longitude], 15);
+        
+        const popup = L.popup({
+            closeOnClick: false,
+            autoClose: false
+        })
+        .setLatLng([position.coords.latitude, position.coords.longitude])
+        .setContent("You're here!")
+        .openOn(map);
+    
+        
+        setTimeout(() => {
+            map.closePopup(popup);
+        }, 4000);
     });
+
+    //let pinsData = [];
+    const pinsLayerGroup = L.layerGroup().addTo(map);
+    const highlightsLayerGroup = L.layerGroup().addTo(map);
 
     // Fetch and display existing markers
     fetch('/get_markers/')
         .then(response => response.json())
         .then(data => {
+            const streetMarkerCounts = {}; 
+            const markersOnStreet = {};
+            const markerPromises = [];
             userAuthenticated = data.authenticated;
             data.markers.forEach(marker => {
-                L.marker([marker.latitude, marker.longitude])
-                    .addTo(map)
+                const markerCoordinates = [marker.latitude, marker.longitude];
+
+                // Fetch street info (Overpass API)
+                const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json];way(around:50,${marker.latitude},${marker.longitude})[highway~"primary|secondary|tertiary|residential"];out geom;`;
+                const fetchStreet = fetch(overpassUrl)
+                    .then(response => response.json())
+                    .then(streetData => {
+                        streetData.elements.forEach(street => {
+                            const coordinates = street.geometry.map(coord => [coord.lat, coord.lon]);
+                            const streetName = street.tags.name || `Unnamed Street ${marker.id}`;
+    
+                            //Storing Markers
+                            if (!markersOnStreet[streetName]) {
+                                markersOnStreet[streetName] = [];
+                            }
+                            markersOnStreet[streetName].push(markerCoordinates);
+    
+                            
+                            if (markersOnStreet[streetName].length >= 3) {
+                                const pathCoords = connectTheDots(markersOnStreet[streetName]);
+                                L.polyline(pathCoords, { color: '#2e84cb', weight: 7 }).addTo(map);
+                            }
+                        });
+                    });
+
+                markerPromises.push(fetchStreet);
+
+                const markerLayer = L.marker([marker.latitude, marker.longitude])
+                    .addTo(pinsLayerGroup)
                     .bindPopup(`<b>${marker.title}</b>
                                 <br>${marker.description}<br>
                                 <small>Disruption Type: ${marker.disruption_type}</small><br>
+                                <div>${generateRaindropIcons(marker.raindrop_count)}</div>
                                 <div class="thumbs-section mt-2">
                                     <button class="btn">
                                         <i id="thumbs-up-${marker.id}" style="color: green;" class="bi bi-hand-thumbs-up thumbs-icon" 
                                         onmouseover="fillIcon('thumbs-up-${marker.id}', true)" 
                                         onmouseout="fillIcon('thumbs-up-${marker.id}', false)"
                                         onclick="handleVote(${marker.id}, true)">
-                                        </i> ${marker.like_count}
+                                        </i>
+                                        <span id="thumbs-up-count-${marker.id}">${marker.like_count}</span>
                                     </button>
                                     <button class="btn">
                                         <i id="thumbs-down-${marker.id}" style="color: red;" class="bi bi-hand-thumbs-down thumbs-icon" 
                                         onmouseover="fillIcon('thumbs-down-${marker.id}', true)" 
                                         onmouseout="fillIcon('thumbs-down-${marker.id}', false)"
                                         onclick="handleVote(${marker.id}, false)">
-                                        </i>${marker.dislike_count}
+                                        </i>
+                                        <span id="thumbs-down-count-${marker.id}">${marker.dislike_count}</span>
                                     </button>
                                 </div>
                                 <small>Added by: ${marker.username}</small><br>
                                 <small>Date: ${marker.created_at}</small>`
                                 );
+                markerLayer.disruptionType = marker.disruption_type.toLowerCase();                
+            });
+            Promise.all(markerPromises).then(() => {
+                updatePinsVisibility();
             });
         });
     
-    // Raindrop selection handling
+    // Function to sort and connect markers (adapted from your example)
+    function connectTheDots(markerCoords) {
+        // Sort markers by latitude or longitude to create a more logical path
+        markerCoords.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+        return markerCoords;
+    }
+    //Raindrop Selection
     const raindropButtons = document.querySelectorAll('.raindrop-btn');
     const raindropInfo = document.getElementById('raindrop-info');
-    let selectedRaindropCount = 0; // Track the number of selected raindrops
+    let selectedRaindropCount = 0; 
     
     
-    // Add hover and click event listeners to each raindrop button
+    
     raindropButtons.forEach((button, index) => {
-        const raindropIndex = index + 1; // 1-based index for each raindrop
+        const raindropIndex = index + 1; 
 
-        // Handle hover effect
+        
         button.addEventListener('mouseover', () => fillRaindrops(raindropIndex));
         button.addEventListener('mouseout', () => resetRaindrops(selectedRaindropCount));
 
-        // Handle click to finalize selection
+        
         button.addEventListener('click', () => {
             selectedRaindropCount = raindropIndex;
             raindropInfo.textContent = `You selected ${selectedRaindropCount} raindrop${selectedRaindropCount > 1 ? 's' : ''}`;
-            resetRaindrops(selectedRaindropCount); // Ensure the selection remains after hover
-            addPins(); // Add the appropriate number of pins
+            resetRaindrops(selectedRaindropCount);
+            addPins(); 
         });
     });
     
-    // Function to add pins
+    // Adding Pins
     function addPins() {
         if (!userAuthenticated) {
             alert("You must be logged in to add markers.");
@@ -161,6 +247,7 @@
     
                 for (let i = 0; i < selectedRaindropCount; i++) {
                     const pin = L.marker([userLat, userLng], { draggable: true }).addTo(map);
+
                     pin.bindPopup(`
                         <form id="markerForm" class="form-group">
                             <div class="form-group">
@@ -187,30 +274,27 @@
                             <button type="submit" class="btn btn-outline-dark">Save Marker</button>
                         </form>
                     `).openPopup();
-    
-                    // Remove duplicate pin when dragged
-                    pin.on('dragend', function (event) {
-                        const newLatLng = event.target.getLatLng();
-                        pin.setLatLng(newLatLng); // Update the pin's position
-                        pin.openPopup(); // Reopen popup at the new location
-                    });
 
-                    // Handle form submission
+                    pin.on('drag', function() {
+                        pin.openPopup();
+                    });
+                    
                     pin.on('popupopen', function() {
                         const form = document.getElementById('markerForm');
                         form.addEventListener('submit', function(event) {
-                            event.preventDefault(); // Prevent page reload
+                            event.preventDefault();
                             const title = form.querySelector('#title').value;
                             const description = form.querySelector('#description').value;
                             const disruptionType = form.querySelector('#disruption_type').value;
-    
+
                             pin.unbindPopup();
                             pin.bindPopup(`
                                 <b>${title}</b><br>${description}<br>
                                 <small>Type: ${disruptionType}</small>
+                                <div>${generateRaindropIcons(selectedRaindropCount)}</div>
                             `).openPopup();
     
-                            // Send data to server
+                            
                             fetch('/save_marker/', {
                                 method: 'POST',
                                 headers: {
@@ -221,14 +305,22 @@
                                     title: title,
                                     description: description,
                                     disruption_type: disruptionType,
+                                    raindrop_count: selectedRaindropCount,
                                     latitude: pin.getLatLng().lat,
                                     longitude: pin.getLatLng().lng
                                 })
                             }).then(response => response.json())
                             .then(data => {
                                 if (data.success) {
-                                    alert('Marker saved!');
-                                } else {
+                                    
+                                    selectedRaindropCount = 0;
+                                    raindropInfo.textContent = 'Choose the number of raindrops';
+                                    resetRaindrops(selectedRaindropCount);
+                                    
+                                    
+                                    pin.closePopup();
+                                }
+                                else{
                                     alert('Failed to save marker.');
                                 }
                             });
@@ -244,19 +336,40 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken') // Include CSRF token if needed
             },
             body: JSON.stringify({ thumbs_up: isThumbsUp }),
         })
         .then(response => response.json())
         .then(data => {
-            alert(`Vote recorded: ${isThumbsUp ? 'Thumbs Up' : 'Thumbs Down'}`);
-            location.reload(); // Refresh map to reflect updated counts
+            if (data.status === 'success') {
+                // Update like and dislike counts dynamically
+                document.getElementById(`thumbs-up-count-${markerId}`).textContent = data.thumbs_up_count;
+                document.getElementById(`thumbs-down-count-${markerId}`).textContent = data.thumbs_down_count;
+            } else {
+                alert(data.message || 'Failed to record vote.');
+            }
         })
         .catch(error => {
             console.error('Error:', error);
             alert('Failed to record vote.');
         });
     }
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    // Fill Icons
     function fillIcon(iconId, isFilling) {
         const icon = document.getElementById(iconId);
         if (isFilling) {
@@ -274,7 +387,7 @@
         }
     }
 
-    // Function to fill raindrops up to a specific count
+    // Fill Raindrops
     function fillRaindrops(count) {
         raindropButtons.forEach((button, index) => {
             const icon = button.querySelector('i');
@@ -286,7 +399,7 @@
         });
     }
 
-    // Function to reset raindrops based on the current selection
+    // Resetting Raindrops
     function resetRaindrops(count) {
         raindropButtons.forEach((button, index) => {
             const icon = button.querySelector('i');
@@ -298,8 +411,153 @@
         });
     }
    
+    // Raindrop Icon Generator
+    function generateRaindropIcons(count) {
+        let raindropIcons = '';
+        for (let i = 0; i < count; i++) {
+            raindropIcons += '<i class="bi bi-droplet-fill" style="font-size: 16px; margin-right: 3px;"></i>'; // Filled raindrop icon
+        }
+        return raindropIcons;
+    }
+
+
+    //Testing Long and Lat
+    map.on('click', function(e) {
+        const clickedCoords = e.latlng;
+        console.log(`Latitude: ${clickedCoords.lat}, Longitude: ${clickedCoords.lng}`);
+    });
+
+    
+    // Fetch Street Data (Overpass API)
+    async function fetchAndHighlightStreets() {
+        const url = 'https://overpass-api.de/api/interpreter?data=[out:json];(way[highway~"primary|secondary|tertiary|residential"](45.43,9.104940891265871,45.534897172036985,9.256453514099123););out body;node(w);out skel;';
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            await highlightStreetsOnMap(data); 
+        } catch (error) {
+            console.error("Error fetching Overpass data:", error);
+        }
+    }
+
+    // Highlight Streets
+    async function highlightStreetsOnMap(data) {
+        const weatherFetchPromises = data.elements
+        .filter(element => element.type === 'way')
+        .map(async element => {
+            const coordinates = element.nodes
+                .map(nodeId => data.elements.find(e => e.id === nodeId && e.type === 'node'))
+                .filter(node => node)
+                .map(node => [node.lat, node.lon]);
+
+            if (coordinates.length > 1) {
+                const midpointIndex = Math.floor(coordinates.length / 2);
+                const midpoint = coordinates[midpointIndex];
+
+                
+                await fetchWeatherAndHighlight(midpoint, coordinates);
+            }
+        });
+
+        await Promise.all(weatherFetchPromises); 
+        console.log('All streets processed and highlighted.');
+    }
+
+    
+    fetchAndHighlightStreets();
+
+    // Fetch Weather and Highlight
+    async function fetchWeatherAndHighlight(midpoint, coordinates) {
+        const apiKey = '6a1620c55efb7c9d49e20ca92b7b352b';
+        const lat = midpoint[0];
+        const lon = midpoint[1];
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+    
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            const humidity = data.main.humidity;
+    
+            let color;
+            if (humidity >= 95) {
+                color = '#ff0000'; // High Rainfall
+            } else if (humidity >= 80) {
+                color = '#ff9e00'; // Moderate Rainfall
+            } else {
+                color = '#ffff00'; // Low Rainfall
+            }
+    
+            console.log(humidity)
+            L.polyline(coordinates, { color: color, weight: 2 }).addTo(highlightsLayerGroup);
+        } catch (error) {
+            console.error('Error fetching weather data:', error);
+        }
+    }
+
+    document.getElementById('pedestrian').addEventListener('change', updatePinsVisibility);
+    document.getElementById('driver').addEventListener('change', updatePinsVisibility);
+    document.getElementById('highlights').addEventListener('change', toggleHighlightsVisibility);
+    document.getElementById('pins').addEventListener('change', togglePinsVisibility);
+
+    function updatePinsVisibility() {
+        const showPedestrian = document.getElementById('pedestrian').checked;
+        const showDriver = document.getElementById('driver').checked;
+        const showPins = document.getElementById('pins').checked;
+
+        if (!showPins) {
+            document.getElementById('pedestrian').checked = false;
+            document.getElementById('driver').checked = false;
+        }
+
+        pinsLayerGroup.eachLayer(marker => {
+
+            if (!showPins) {
+            map.removeLayer(marker);
+            } else {
+                if (showPedestrian && isPedestrianMarker(marker)) {
+                    marker.addTo(map);
+                } else if (showDriver && isDriverMarker(marker)) {
+                    marker.addTo(map);
+                } else {
+                    map.removeLayer(marker); // Hide others
+                }
+            }
+        });
+    }
+
+    function isPedestrianMarker(marker) {
+        return marker.disruptionType === "flood" ||
+               marker.disruptionType === "flooded sidewalk" ||
+               marker.disruptionType === "flooded crosswalk" ||
+               marker.disruptionType === "hazardous infrastructure" ||
+               marker.disruptionType === "splash zone";
+    }
+    
+    
+    function isDriverMarker(marker) {
+        return marker.disruptionType === "flood" ||
+               marker.disruptionType === "flooded road" ||
+               marker.disruptionType === "road block" ||
+               marker.disruptionType === "flooded parking spaces" ||
+               marker.disruptionType === "hazardous infrastructure";
+    }
+
+    function toggleHighlightsVisibility() {
+        const showHighlights = document.getElementById('highlights').checked;
+        if (showHighlights) {
+            map.addLayer(highlightsLayerGroup);
+        } else {
+            map.removeLayer(highlightsLayerGroup);
+        }
+    }
+
+    function togglePinsVisibility() {
+        const showPins = document.getElementById('pins').checked;
+        if (showPins) {
+            map.addLayer(pinsLayerGroup);
+        } else {
+            map.removeLayer(pinsLayerGroup);
+        }
+    }
 </script>
-
-
-
 {% endblock %}
