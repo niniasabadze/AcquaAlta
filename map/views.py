@@ -15,6 +15,7 @@ API_URL = "http://api.openweathermap.org/data/2.5/weather"
 def index(request):
     context={}
     return render(request, "map/index.html", context)
+
 @csrf_exempt
 @login_required
 def save_marker(request):
@@ -38,6 +39,7 @@ def save_marker(request):
         )
         return JsonResponse({'success': True, 'marker_id': marker.id})
     return JsonResponse({'success': False})
+
 def get_markers(request):
     
         markers = Marker.objects.all()
