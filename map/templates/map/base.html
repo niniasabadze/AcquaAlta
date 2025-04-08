@@ -11,7 +11,7 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-
+    <link rel="stylesheet" href="{% static 'base_style.css' %}">
 
     <!-- LeafLet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -19,52 +19,7 @@
 
     <!-- Custom CSS for Sidebar -->
     <style>
-      #alertSidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100vh;
-        width: 300px;
-        background: #f8f9fa;
-        padding: 10px;
-        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
-        display: none;
-        z-index: 9999;
-        overflow-y: auto;
-      }
-      #alertSidebar.show {
-        display: block;  /* Show when active */
-      }
-      .alert-sidebar .close {
-        font-size: 30px;
-        background: none;
-        border: none;
-        color: #000;
-        position: absolute;
-        top: 10px;
-        right: 10px;
-      }
-      .card {
-        border: 1px solid #ddd;
-        border-radius: 5px;
-      }
-      .hide {
-        opacity: 0;
-        transition: opacity 1s ease-out;
-      }
-      #login-alert{
-        background-color: rgba(255, 255, 255, 2);
-        border: none; 
-        color: black; 
-        position: absolute; 
-        top: 90px; 
-        left: 36%;
-        z-index: 1000; 
-        width: auto; 
-        max-width: auto;
-        text-align: center;
-        border-radius: 10px;
-      }
+      
   </style>
 
 </head>

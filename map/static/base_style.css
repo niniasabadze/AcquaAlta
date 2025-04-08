@@ -1,0 +1,53 @@
+#alertSidebar {
+    position: fixed;
+    top: 0;
+    left: -350px;
+    width: 350px;
+    height: 100%;
+    background-color: #fff;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    overflow-y: auto;
+    transition: left 0.4s ease-in-out;
+    z-index: 1050;
+}
+
+#alertSidebar.show {
+    left: 0;
+}
+
+#alertSidebar .close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    float: right;
+    cursor: pointer;
+    color: #888;
+    transition: color 0.2s ease;
+  }
+  
+#alertSidebar .close:hover {
+    color: #333;
+}
+
+.card {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+.hide {
+    opacity: 0;
+    transition: opacity 1s ease-out;
+}
+#login-alert{
+    background-color: rgba(255, 255, 255, 2);
+    border: none; 
+    color: black; 
+    position: absolute; 
+    top: 90px; 
+    left: 36%;
+    z-index: 1000; 
+    width: auto; 
+    max-width: auto;
+    text-align: center;
+    border-radius: 10px;
+}

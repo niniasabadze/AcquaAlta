@@ -62,6 +62,44 @@
         border-radius: 10px; 
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(128, 128, 128, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+      
+    .modal-box {
+        background-color: white;
+        padding: 20px 30px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.25);
+        position: relative;
+        width: 90%;
+        max-width: 400px;
+        text-align: center;
+        font-family: Arial, sans-serif;
+    }
+      
+    .close-button {
+        position: absolute;
+        top: 10px;
+        right: 15px;
+        background: none;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+    }
+      
+    .hidden {
+        display: none;
+    }      
     
 </style>
 
@@ -101,6 +139,12 @@
     </div>
 </div>
 
+<div id="customAlertOverlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <button class="close-button" onclick="closeCustomAlert()">&times;</button>
+      <p style="margin-top: 1rem;">You must be logged in to add markers.</p>
+    </div>
+  </div>
 
 <script>
         
@@ -237,7 +281,7 @@
     // Adding Pins
     function addPins() {
         if (!userAuthenticated) {
-            alert("You must be logged in to add markers.");
+            showCustomAlert("You must be logged in to add markers.");
             return;
         }
         if (selectedRaindropCount > 0) {
@@ -587,5 +631,16 @@
             map.removeLayer(pinsLayerGroup);
         }
     }
+
+    function showCustomAlert(message) {
+        const overlay = document.getElementById("customAlertOverlay");
+        overlay.querySelector("p").textContent = message;
+        overlay.classList.remove("hidden");
+    }
+    
+    function closeCustomAlert() {
+        document.getElementById("customAlertOverlay").classList.add("hidden");
+    }
+    
 </script>
 {% endblock %}
